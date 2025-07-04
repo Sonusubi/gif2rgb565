@@ -18,12 +18,13 @@ class GifToRGB565App extends StatelessWidget {
     return MaterialApp(
       title: 'GIF to RGB565 Converter',
       theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
+        primarySwatch: Colors.blue,
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: const Color(0xFF4F46E5),
           brightness: Brightness.light,
         ),
+        fontFamily: 'SF Pro Display',
       ),
       home: const ConverterHomePage(),
     );
@@ -51,25 +52,54 @@ class _ConverterHomePageState extends State<ConverterHomePage>
   String _generatedCode = '';
   String? _statusMessage;
   bool _isError = false;
+  int _selectedTabIndex = 0;
 
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  late AnimationController _uploadController;
+  late AnimationController _successController;
+  late AnimationController _slideController;
+  late Animation<double> _uploadAnimation;
+  late Animation<double> _successAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
+    _uploadController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+
+    _successController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
     );
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _uploadAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _uploadController, curve: Curves.easeInOut),
+    );
+
+    _successAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _successController, curve: Curves.elasticOut),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
+
+    _slideController.forward();
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _uploadController.dispose();
+    _successController.dispose();
+    _slideController.dispose();
     _targetWidthController.dispose();
     _targetHeightController.dispose();
     _arrayPrefixController.dispose();
@@ -80,153 +110,258 @@ class _ConverterHomePageState extends State<ConverterHomePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: _buildAppBar(),
+      body: SlideTransition(position: _slideAnimation, child: _buildBody()),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFFEC4899)],
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 30),
-                _buildUploadSection(),
-                const SizedBox(height: 30),
-                _buildConfigSection(),
-                const SizedBox(height: 20),
-                _buildInfoCard(),
-                if (_extractedFrames.isNotEmpty) ...[
-                  const SizedBox(height: 30),
-                  _buildFramesSection(),
-                ],
-                const SizedBox(height: 30),
-                _buildConvertButton(),
-                if (_statusMessage != null) ...[
-                  const SizedBox(height: 20),
-                  _buildStatusMessage(),
-                ],
-                if (_generatedCode.isNotEmpty) ...[
-                  const SizedBox(height: 30),
-                  _buildCodeOutput(),
-                ],
-              ],
-            ),
-          ),
+      ),
+      title: const Text(
+        'RGB565 Converter',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
         ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.help_outline, color: Colors.white),
+          onPressed: () => _showHelpDialog(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    return IndexedStack(
+      index: _selectedTabIndex,
+      children: [_buildMainView(), _buildPreviewView(), _buildCodeView()],
+    );
+  }
+
+  Widget _buildMainView() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildHeroSection(),
+          _buildUploadCard(),
+          _buildConfigCard(),
+          _buildProcessButton(),
+          if (_statusMessage != null) _buildStatusCard(),
+        ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeroSection() {
     return Container(
-      padding: const EdgeInsets.all(30),
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: const Color(0xFF4F46E5).withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '🎨 GIF to RGB565 Converter',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2d3748),
-            ),
-            textAlign: TextAlign.center,
+          const Row(
+            children: [
+              Icon(Icons.image, color: Colors.white, size: 32),
+              SizedBox(width: 12),
+              Text(
+                'GIF to RGB565',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
-            'Convert animated GIFs to accurate RGB565 arrays for TFT displays',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
+            'Convert animated GIFs and images to RGB565 format for TFT displays with precision color mapping.',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 16,
+              height: 1.4,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUploadSection() {
+  Widget _buildUploadCard() {
     return AnimatedBuilder(
-      animation: _pulseAnimation,
+      animation: _uploadAnimation,
       builder: (context, child) {
-        return Transform.scale(
-          scale: _fileName == null ? _pulseAnimation.value : 1.0,
-          child: GestureDetector(
-            onTap: _pickFile,
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: _fileName != null
-                      ? Colors.green.withOpacity(0.5)
-                      : Colors.grey.withOpacity(0.3),
-                  width: 3,
-                  strokeAlign: BorderSide.strokeAlignInside,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _fileName != null ? Icons.check_circle : Icons.folder_open,
-                    size: 60,
-                    color: _fileName != null ? Colors.green : Colors.grey[400],
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    _fileName ?? 'Tap to select GIF file',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _fileName != null
-                          ? Colors.green[700]
-                          : Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Supports GIF, PNG, JPG, and BMP files',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            ),
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Transform.scale(
+            scale: _fileName == null ? _uploadAnimation.value : 1.0,
+            child: _buildUploadArea(),
           ),
         );
       },
     );
   }
 
-  Widget _buildConfigSection() {
+  Widget _buildUploadArea() {
+    return GestureDetector(
+      onTap: _pickFile,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        height: 180,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _fileName != null
+                ? const Color(0xFF10B981)
+                : const Color(0xFFE5E7EB),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: _fileName != null
+                        ? ScaleTransition(
+                            scale: _successAnimation,
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(50),
+                            ),
+                            child: const Icon(
+                              Icons.cloud_upload_outlined,
+                              color: Color(0xFF6B7280),
+                              size: 32,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _fileName ?? 'Select your file',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: _fileName != null
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF374151),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _fileName != null
+                        ? 'Ready to process'
+                        : 'GIF, PNG, JPG, BMP supported',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            if (_isProcessing)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF4F46E5),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Processing file...',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfigCard() {
     return Container(
-      padding: const EdgeInsets.all(25),
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,199 +371,130 @@ class _ConverterHomePageState extends State<ConverterHomePage>
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF2d3748),
+              color: Color(0xFF111827),
             ),
           ),
           const SizedBox(height: 20),
-          Wrap(
-            spacing: 20,
-            runSpacing: 20,
-            children: [
-              if (!_disableResize) ...[
-                _buildConfigField('Target Width (px)', _targetWidthController),
-                _buildConfigField(
-                  'Target Height (px)',
-                  _targetHeightController,
-                ),
-              ],
-              _buildConfigField('Array Prefix', _arrayPrefixController),
-              _buildConfigField('Max Frames', _maxFramesController),
-            ],
-          ),
+          _buildConfigGrid(),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Checkbox(
-                value: _disableResize,
-                onChanged: (value) {
-                  setState(() {
-                    _disableResize = value ?? false;
-                  });
-                },
-              ),
-              const Text(
-                'Keep Original Size',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
+          _buildKeepOriginalSizeToggle(),
         ],
       ),
     );
   }
 
-  Widget _buildConfigField(String label, TextEditingController controller) {
-    return SizedBox(
-      width: 200,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF4a5568),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
+  Widget _buildConfigGrid() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      childAspectRatio: 2.0,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      children: [
+        if (!_disableResize) ...[
+          _buildConfigField('Width', _targetWidthController, 'px'),
+          _buildConfigField('Height', _targetHeightController, 'px'),
         ],
-      ),
+        _buildConfigField('Prefix', _arrayPrefixController, ''),
+        _buildConfigField('Max Frames', _maxFramesController, ''),
+      ],
     );
   }
 
-  Widget _buildInfoCard() {
+  Widget _buildConfigField(
+    String label,
+    TextEditingController controller,
+    String suffix,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            suffixText: suffix,
+            suffixStyle: const TextStyle(color: Color(0xFF6B7280)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKeepOriginalSizeToggle() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF5E7),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFF6AD55), width: 1),
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            '✨ Enhanced Flutter Version',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFC05621),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This Flutter app includes native image processing with proper frame extraction, accurate RGB565 conversion, and beautiful Material Design UI. Works with both animated GIFs and static images.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.orange[800],
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFramesSection() {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE6FFFA),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF81E6D9), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Extracted Frames',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2d3748),
-            ),
-          ),
-          const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-            ),
-            itemCount: _extractedFrames.length,
-            itemBuilder: (context, index) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(
-                          Uint8List.fromList(
-                            img.encodePng(_extractedFrames[index]),
-                          ),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Frame $index',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              );
+          Switch(
+            value: _disableResize,
+            onChanged: (value) {
+              setState(() {
+                _disableResize = value;
+              });
             },
+            activeColor: const Color(0xFF4F46E5),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Keep Original Size',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF374151),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildConvertButton() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      height: 60,
+  Widget _buildProcessButton() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      width: double.infinity,
+      height: 56,
       child: ElevatedButton(
         onPressed: _extractedFrames.isNotEmpty && !_isProcessing
             ? _convertToRGB565
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF667eea),
+          backgroundColor: const Color(0xFF4F46E5),
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(16),
           ),
-          elevation: 10,
-          shadowColor: const Color(0xFF667eea).withOpacity(0.3),
+          elevation: 0,
+          shadowColor: Colors.transparent,
         ),
         child: _isProcessing
             ? const Row(
@@ -442,7 +508,7 @@ class _ConverterHomePageState extends State<ConverterHomePage>
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
-                  SizedBox(width: 10),
+                  SizedBox(width: 12),
                   Text(
                     'Converting...',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -450,37 +516,48 @@ class _ConverterHomePageState extends State<ConverterHomePage>
                 ],
               )
             : const Text(
-                'Convert to RGB565 Arrays',
+                'Convert to RGB565',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
       ),
     );
   }
 
-  Widget _buildStatusMessage() {
+  Widget _buildStatusCard() {
     return Container(
-      padding: const EdgeInsets.all(15),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _isError ? const Color(0xFFFED7D7) : const Color(0xFFC6F6D5),
-        borderRadius: BorderRadius.circular(12),
+        color: _isError ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _isError ? const Color(0xFFFEB2B2) : const Color(0xFF9AE6B4),
+          color: _isError ? const Color(0xFFFECACA) : const Color(0xFFBBF7D0),
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            _isError ? Icons.error : Icons.check_circle,
-            color: _isError ? const Color(0xFFC53030) : const Color(0xFF2F855A),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isError
+                  ? const Color(0xFFDC2626)
+                  : const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               _statusMessage!,
               style: TextStyle(
                 color: _isError
-                    ? const Color(0xFFC53030)
-                    : const Color(0xFF2F855A),
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFF059669),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -490,71 +567,238 @@ class _ConverterHomePageState extends State<ConverterHomePage>
     );
   }
 
-  Widget _buildCodeOutput() {
+  Widget _buildPreviewView() {
+    if (_extractedFrames.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: 64,
+              color: Color(0xFF9CA3AF),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No frames to preview',
+              style: TextStyle(fontSize: 18, color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Preview (${_extractedFrames.length} frames)',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 20),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1,
+            ),
+            itemCount: _extractedFrames.length,
+            itemBuilder: (context, index) {
+              return _buildFrameCard(index);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFrameCard(int index) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF2d3748),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Generated Code',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _copyCode,
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Copy'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF48BB78),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ],
+              child: Image.memory(
+                Uint8List.fromList(img.encodePng(_extractedFrames[index])),
+                fit: BoxFit.cover,
+                width: double.infinity,
+              ),
             ),
           ),
           Container(
-            constraints: const BoxConstraints(maxHeight: 400),
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Frame ${index + 1}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCodeView() {
+    if (_generatedCode.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.code_outlined, size: 64, color: Color(0xFF9CA3AF)),
+            SizedBox(height: 16),
+            Text(
+              'No code generated yet',
+              style: TextStyle(fontSize: 18, color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1F2937),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Generated Code',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _copyCode,
+                icon: const Icon(Icons.copy, size: 16),
+                label: const Text('Copy'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(20),
             child: SingleChildScrollView(
               child: Text(
                 _generatedCode,
                 style: const TextStyle(
-                  fontFamily: 'monospace',
+                  fontFamily: 'Courier',
                   fontSize: 12,
-                  color: Color(0xFF2d3748),
+                  color: Color(0xFF374151),
                   height: 1.5,
                 ),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedTabIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedTabIndex = index;
+          });
+        },
+        selectedItemColor: const Color(0xFF4F46E5),
+        unselectedItemColor: const Color(0xFF9CA3AF),
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Convert',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.preview_outlined),
+            activeIcon: Icon(Icons.preview),
+            label: 'Preview',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.code_outlined),
+            activeIcon: Icon(Icons.code),
+            label: 'Code',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('How to Use'),
+        content: const Text(
+          '1. Select a GIF, PNG, JPG, or BMP file\n'
+          '2. Configure target dimensions and settings\n'
+          '3. Click "Convert to RGB565" to generate arrays\n'
+          '4. Preview frames and copy the generated code\n\n'
+          'The generated code is ready to use in Arduino/ESP32 projects.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it'),
           ),
         ],
       ),
@@ -587,6 +831,7 @@ class _ConverterHomePageState extends State<ConverterHomePage>
 
         if (fileBytes != null) {
           await _processFile(fileBytes);
+          _successController.forward();
         } else {
           _setError('Failed to read file bytes.');
         }
@@ -598,7 +843,6 @@ class _ConverterHomePageState extends State<ConverterHomePage>
 
   Future<void> _processFile(Uint8List bytes) async {
     try {
-      // Check if it's a GIF
       if (_fileName!.toLowerCase().endsWith('.gif')) {
         await _processGif(bytes);
       } else {
@@ -654,11 +898,13 @@ class _ConverterHomePageState extends State<ConverterHomePage>
       _statusMessage = null;
     });
 
-    // Use a future to allow UI to update
     Future.delayed(const Duration(milliseconds: 100), () {
       try {
         _generateRGB565Arrays();
         _setSuccess('RGB565 arrays generated successfully!');
+        setState(() {
+          _selectedTabIndex = 2; // Switch to code view
+        });
       } catch (e) {
         _setError('Failed to generate arrays: $e');
       } finally {
@@ -721,7 +967,6 @@ class _ConverterHomePageState extends State<ConverterHomePage>
       code.writeln();
     }
 
-    // Add array of pointers
     code.writeln('// Array of frame pointers');
     code.writeln(
       'const uint16_t* const ${arrayPrefix}_frames[${_extractedFrames.length}] PROGMEM = {',
